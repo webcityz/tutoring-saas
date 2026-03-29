@@ -20,3 +20,44 @@
 <li>server.js - the entry point of the application</li>
 <li>.env - holds configuration details</li>
 </ul>
+<h3>List of API's done:</h3>
+
+
+<table>
+  <tr>
+    <th>Method</th>
+    <th>Endpoint</th>
+    <th>Access</th>
+	<th>Description</th>
+  </tr>
+  <tr>
+    <td>GET</td>
+    <td>/</td>
+    <td>Public</td>
+	<td>Health Check</td>
+  </tr>
+  <tr>
+    <td>POST</td>
+    <td>/api/auth/register</td>
+    <td>Public</td>
+	<td>Register User</td>
+  </tr>
+  <tr>
+    <td>POST</td>
+    <td>/api/auth/login</td>
+    <td>Public</td>
+    <td>Login User</td>
+  </tr>
+  <tr>
+    <td>GET</td>
+    <td>/api/user/me</td>
+    <td>Authenticated</td>
+    <td>Get Current User</td>
+  </tr>
+  <tr>
+    <td>GET</td>
+    <td>/api/users</td>
+    <td>Admin Only</td>
+    <td>Get All Users</td>
+  </tr>
+</table>

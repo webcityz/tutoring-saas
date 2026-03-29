@@ -5,10 +5,12 @@ import User from "../models/user.model.js";
 export const register = async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+    console.log("Incoming request:", req.body);
 
     // Check existing user
     const existingUser = await User.findOne({ email });
     if (existingUser) {
+      console.log("Existing user:", existingUser);
       return res.status(400).json({ error: "Email already in use" });
     }
 
@@ -26,6 +28,7 @@ export const register = async (req, res) => {
       user,
     });
   } catch (err) {
+    console.error("Error in register:", err);
     res.status(500).json({ error: err.message });
   }
 };
@@ -55,7 +58,7 @@ export const login = async (req, res) => {
 
     res.json({ token });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    next(err);
   }
 };
 
