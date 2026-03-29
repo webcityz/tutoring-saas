@@ -3,11 +3,13 @@ import cors from "cors";
 import authRoutes from "./routes/auth.route.js";
 import errorHandler from "./middlewares/error.middleware.js";
 import userRoutes from "./routes/user.routes.js";
+import requestLogger from "./middlewares/requestLogger.middleware.js";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(requestLogger);
 
 app.get("/", (req, res) => {
   res.send("API is running...");
