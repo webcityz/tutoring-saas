@@ -2,13 +2,11 @@ import Audit from "../models/audit.model.js";
 import logger from "../utils/logger.js";
 
 // Helper to extract clean request data
-const getRequestData = (req) => {
-  return {
-    params: req.params,
-    query: req.query,
-    body: req.body,
-  };
-};
+const getRequestData = (req) => ({
+  params: req.params,
+  query: req.query,
+  body: req.body,
+});
 
 // Map HTTP methods to allowed enum values
 const methodToAction = {
@@ -26,7 +24,7 @@ const auditMiddleware = (options = {}) => {
     const originalSend = res.send;
     let responseBody;
 
-    // Capture response body safely
+    // Capture response body
     res.send = function (body) {
       responseBody = body;
       return originalSend.call(this, body);
@@ -36,13 +34,21 @@ const auditMiddleware = (options = {}) => {
       try {
         const duration = Date.now() - startTime;
 
-        // Skip logging if specified
+        // Skip logging if needed
         if (options.skip && options.skip(req)) return;
 
         const auditLog = {
-          userId: req.user?._id || null,
+          // ✅ FIXED: supports both _id and id
+          userId: req.user?._id || req.user?.id || null,
 
-          // ✅ FIXED: valid enum mapping
+          // ✅ NEW: snapshot of user (very useful)
+          userSnapshot: req.user
+            ? {
+                email: req.user.email,
+                role: req.user.role,
+              }
+            : null,
+
           action:
             options.action ||
             methodToAction[req.method] ||
@@ -63,7 +69,7 @@ const auditMiddleware = (options = {}) => {
           },
 
           ipAddress:
-            req.headers["x-forwarded-for"] ||
+            req.headers["x-forwarded-for"]?.split(",")[0] ||
             req.socket?.remoteAddress ||
             null,
 
@@ -77,22 +83,21 @@ const auditMiddleware = (options = {}) => {
               : null,
         };
 
-        await Audit.create(auditLog);
-       /* console.log("USER:", req.user);
-        console.log("AUDIT LOG:", auditLog);*/
+        const createdLog = await Audit.create(auditLog);
+
         logger.info({
           message: "Audit log created",
-          action: auditLog.action,
-          entity: auditLog.entity,
-          // userId: auditLog.userId,
-          userId: auditLog._id,
+          action: createdLog.action,
+          entity: createdLog.entity,
+          userId: createdLog.userId,
+          auditId: createdLog._id,
         });
 
       } catch (error) {
         logger.error({
           message: "Audit Logging Failed",
           error: error.message,
-          userId: req.user?._id || null,
+          userId: req.user?._id || req.user?.id || null,
         });
       }
     });
@@ -113,9 +118,10 @@ function safeParse(data) {
 // Extract meaningful error message
 function extractErrorMessage(responseBody) {
   try {
-    const parsed = typeof responseBody === "string"
-      ? JSON.parse(responseBody)
-      : responseBody;
+    const parsed =
+      typeof responseBody === "string"
+        ? JSON.parse(responseBody)
+        : responseBody;
 
     return parsed?.message || null;
   } catch {
