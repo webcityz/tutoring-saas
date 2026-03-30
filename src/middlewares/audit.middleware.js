@@ -1,4 +1,5 @@
 import Audit from "../models/audit.model.js";
+import logger from "../utils/logger.js";
 
 // Helper to extract clean request data
 const getRequestData = (req) => {
@@ -9,16 +10,23 @@ const getRequestData = (req) => {
   };
 };
 
+// Map HTTP methods to allowed enum values
+const methodToAction = {
+  GET: "VIEW",
+  POST: "CREATE",
+  PUT: "UPDATE",
+  PATCH: "UPDATE",
+  DELETE: "DELETE",
+};
+
 const auditMiddleware = (options = {}) => {
   return async (req, res, next) => {
     const startTime = Date.now();
 
-    // Store original send function
     const originalSend = res.send;
-
     let responseBody;
 
-    // Capture response body
+    // Capture response body safely
     res.send = function (body) {
       responseBody = body;
       return originalSend.call(this, body);
@@ -33,8 +41,18 @@ const auditMiddleware = (options = {}) => {
 
         const auditLog = {
           userId: req.user?._id || null,
-          action: options.action || req.method,
-          entity: options.entity || req.baseUrl || "UNKNOWN",
+
+          // ✅ FIXED: valid enum mapping
+          action:
+            options.action ||
+            methodToAction[req.method] ||
+            "OTHER",
+
+          entity:
+            options.entity ||
+            req.baseUrl?.replace("/api/", "").toUpperCase() ||
+            "UNKNOWN",
+
           entityId: req.params?.id || null,
 
           details: {
@@ -45,19 +63,37 @@ const auditMiddleware = (options = {}) => {
           },
 
           ipAddress:
-            req.headers["x-forwarded-for"] || req.socket.remoteAddress,
+            req.headers["x-forwarded-for"] ||
+            req.socket?.remoteAddress ||
+            null,
 
-          userAgent: req.headers["user-agent"],
+          userAgent: req.headers["user-agent"] || null,
 
           status: res.statusCode >= 400 ? "FAILED" : "SUCCESS",
 
           errorMessage:
-            res.statusCode >= 400 ? responseBody?.message || null : null,
+            res.statusCode >= 400
+              ? extractErrorMessage(responseBody)
+              : null,
         };
 
         await Audit.create(auditLog);
+       /* console.log("USER:", req.user);
+        console.log("AUDIT LOG:", auditLog);*/
+        logger.info({
+          message: "Audit log created",
+          action: auditLog.action,
+          entity: auditLog.entity,
+          // userId: auditLog.userId,
+          userId: auditLog._id,
+        });
+
       } catch (error) {
-        console.error("Audit Logging Failed:", error.message);
+        logger.error({
+          message: "Audit Logging Failed",
+          error: error.message,
+          userId: req.user?._id || null,
+        });
       }
     });
 
@@ -74,4 +110,17 @@ function safeParse(data) {
   }
 }
 
-module.exports = auditMiddleware;
+// Extract meaningful error message
+function extractErrorMessage(responseBody) {
+  try {
+    const parsed = typeof responseBody === "string"
+      ? JSON.parse(responseBody)
+      : responseBody;
+
+    return parsed?.message || null;
+  } catch {
+    return null;
+  }
+}
+
+export default auditMiddleware;

@@ -86,4 +86,7 @@ auditSchema.index({ action: 1 });
 auditSchema.index({ createdAt: -1 });
 
 // Export model
-module.exports = mongoose.model("Audit", auditSchema);
+const Audit = mongoose.model("Audit", auditSchema);
+export default Audit;
+
+
